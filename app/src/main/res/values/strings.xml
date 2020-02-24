@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">solamimiApp</string>
+    <string name="bt_voice0">トグルボタン</string>
+    <string name="bt_voice1">スタート</string>
+    <string name="bt_voice2">ストップ</string>
+    <string name="bt_send">送信</string>
+    <string name="bt_clear">クリア</string>
+    <string name="tv_contents">内容</string>
+    <string name="bt_modify">修正</string>
+    <string name="bt_delete">削除</string>
+
+</resources>
