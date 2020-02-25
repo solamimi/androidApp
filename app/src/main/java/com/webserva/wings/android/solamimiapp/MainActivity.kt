@@ -14,11 +14,12 @@ import android.widget.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
-import org.json.JSONObject
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
+import java.io.UnsupportedEncodingException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
@@ -31,19 +32,20 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var mSpeechRecognizerIntent: Intent
 
-    // private var listItems = mutableListOf<MutableMap<String, String>>()
-
-    var listItems = ArrayList<String>()
+    private var listItems = ArrayList<String>()
 
     // private var FROM = arrayOf("word")
 
     // private var TO = intArrayOf(R.id.idContent)
 
-    private var wordList = listOf<String>()
+    private var wordMap = mutableMapOf(
+        "date" to "", "user" to "", "type" to "", "text" to "",
+        "value1" to "", "value2" to "", "value3" to "", "value4" to ""
+    )
 
-    // private var regexWord = Regex(pattern = "")
+    private var regexWord = "\\D+".toRegex()
 
-    // private var regexNumber = Regex(pattern = "")
+    private var regexNumber = "\\d+".toRegex()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,68 +81,71 @@ class MainActivity : AppCompatActivity() {
 
     fun onClickSend(view: View) {
         val speechText = findViewById<EditText>(R.id.speechText)
-        val jsonObject = JSONObject()
-        val listened = JSONObject()
+
+        // val jsonObject = JSONObject()
+        // val listened = JSONObject()
         // val listened2 = JSONObject()
         // val listened3 = JSONObject()
 
-        wordList = speechText.text.toString().lines()
-
-        wordList.forEach {
-            Log.i("send",it + "\n")
+        var speechList = ArrayList<String>()
+        for(i in 0..4) {
+            speechList.add("")
         }
 
-        // 登録するパラメータを作成
-        // Build Json Format
-        listened.accumulate(
-            "listen_at",
-            SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).format(Date())
-        )
+        var j = 1
+        var text = ""
+        Log.i("test","L94")
+        for (word in speechText.text.toString().lines()) {
+            Log.i("test",word)
+            if(regexWord.containsMatchIn(word)) {
+                text += word + " "
+                Log.i("test","L99")
+            }
 
-        listened.accumulate("action_type", "訪問介護")
-        listened.accumulate("listen_words", "訪問介護 脈拍 血圧")
-        listened.accumulate("user", 1)
-        listened.accumulate("value1", 999)
-        listened.accumulate("value1", 60)
-        listened.accumulate("value2", 70)
-        listened.accumulate("value3", 80)
-        listened.accumulate("value4", 90)
-        // listened.accumulate("created_at", SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).format(Date()))
-        // listened.accumulate("created_by", 3)
-        // listened.accumulate("updated_at", SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).format(Date()))
-        // listened.accumulate("updated_by", 3)
+            if(regexNumber.containsMatchIn(word)) {
+                speechList[j] = word
+                j++
+                Log.i("test","L105")
+            }
 
+        }
+        speechList[0] = text.trimEnd()
 
-        /*
-        listened.accumulate(
-            "created_at",
-            SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).format(Date())
-        )
-        listened.accumulate("listen_at", 1)
-        listened.accumulate("created_by", "訪問介護")
-        listened.accumulate("updated_at", "訪問介護 脈拍 血圧")
-        listened.accumulate("updated_by", 60)
-        listened.accumulate("user", 120)
-        listened.accumulate("listen_words", "ああああ")
-        listened.accumulate("value", "いいいい")
-        listened.accumulate("I", SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).format(Date()))
-        listened.accumulate("J", 3)
-        listened.accumulate("K", SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).format(Date()))
-        listened.accumulate("L", 3)
+        Log.i("test", speechList[0])
 
-         */
+        wordMap["date"] = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).format(Date())
+        wordMap["user"] = "1"
+        wordMap["type"] = "訪問介護"
+        wordMap["text"] = speechList[0]
+        wordMap["value1"] = speechList[1]
+        wordMap["value2"] = speechList[2]
+        wordMap["value3"] = speechList[3]
+        wordMap["value4"] = speechList[4]
 
-        jsonObject.accumulate("listened", listened)
+        Log.i("test","L125")
 
-        Log.i("json", jsonObject.toString())
+        val sbParams = StringBuilder()
+        var i = 0
 
+        wordMap.forEach {
+            try {
+                if (i != 0) {
+                    sbParams.append("&")
+                }
+                sbParams.append(it.key).append("=").append(URLEncoder.encode(it.value, "UTF-8"))
+            } catch (e: UnsupportedEncodingException) {
+                e.printStackTrace()
+            }
+            Log.i("Iteration",i.toString())
+            i++
+        }
 
         try {
             GlobalScope.launch {
                 // httpPost("https://solamimi.herokuapp.com", jsonObject)
                 // スプシへポスト
-                httpPost("https://script.google.com/macros/s/AKfycbyfCAUWNE7y0z0sKbltcIZ91yAykA2t0Ilx1Q1fNqvpaDKAE8o/exec", jsonObject)
-                Log.i("httpPost", jsonObject.toString())
+                httpPost("https://script.google.com/macros/s/AKfycbyfCAUWNE7y0z0sKbltcIZ91yAykA2t0Ilx1Q1fNqvpaDKAE8o/exec", sbParams.toString())
+                Log.i("httpPost", sbParams.toString())
             }
         } catch (ex: Exception) {
 
@@ -256,32 +261,6 @@ class MainActivity : AppCompatActivity() {
                     /* Exception happen */
                 }
 
-
-                /*
-                try {
-                    Log.i("voice", "L203")
-                    GlobalScope.launch {
-                        Log.i("voice", "L205")
-                        // The action is posted to the event queue of the UI thread
-                        runOnUiThread {
-                            Log.i("voice", "L201")
-                            // val lvSpeech = findViewById<ListView>(R.id.speechText)
-                            // val adapter = SimpleAdapter(applicationContext, listItems, R.layout.item, FROM, TO)
-                            // lvSpeech.adapter = adapter
-                            val lvSpeech = findViewById<ListView>(R.id.speechText)
-                            customAdapter = EditAdapter(applicationContext, listItems)
-                            lvSpeech!!.adapter = customAdapter
-                        }
-                        runOnUiThread {
-                            Log.i("voice", "L210")
-                            mSpeechRecognizer.startListening(mSpeechRecognizerIntent)
-                        }
-                    }
-                } catch (ex: Exception) {
-                    /* Exception happen */
-                }
-                 */
-
             }
 
 
@@ -302,16 +281,16 @@ class MainActivity : AppCompatActivity() {
      * Http communication
      */
 
-    private suspend fun httpPost(myUrl: String, jsonObject: JSONObject): String {
+    private suspend fun httpPost(myUrl: String, myQueryString: String): String {
         val result = withContext(Dispatchers.IO) {
             val url = URL(myUrl)
             // Create HttpURLConnection
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            conn.setRequestProperty("Accept-Charset", "UTF-8")
 
-            // Add JSON content to POST request body
-            setPostRequestContent(conn, jsonObject)
+            // Add Query content to POST request body
+            setPostRequestContent(conn, myQueryString)
 
             // Make POST request to the given URL
             conn.connect()
@@ -323,11 +302,11 @@ class MainActivity : AppCompatActivity() {
         return result
     }
 
-    private fun setPostRequestContent(conn: HttpURLConnection, jsonObject: JSONObject) {
+    private fun setPostRequestContent(conn: HttpURLConnection, queryString: String) {
         val os = conn.outputStream
         val writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
-        writer.write(jsonObject.toString())
-        Log.i("setPostRequestContent", jsonObject.toString())
+        writer.write(queryString)
+        Log.i("setPostRequestContent", queryString)
         writer.flush()
         writer.close()
         os.close()
