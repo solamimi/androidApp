@@ -9,6 +9,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
+import android.view.KeyEvent
 import android.view.View
 import android.widget.*
 import androidx.core.app.ActivityCompat
@@ -47,39 +48,125 @@ class MainActivity : AppCompatActivity() {
 
     private var regexNumber = "\\d+".toRegex()
 
+    private var isPushedKeyCode24 = false
+    private var isPushedKeyCode66 = false
+
+    private var spinnerItems = arrayOf("山田 花子", "田中 太郎", "佐藤 よしこ", "木村 義信")
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        var spinner_user: Spinner = findViewById(R.id.spinner_user)
+
+        // ArrayAdapter
+        val adapter = ArrayAdapter(applicationContext,
+            android.R.layout.simple_spinner_item, spinnerItems)
+
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+
+        // spinner に adapter をセット
+        // Kotlin Android Extensions
+        spinner_user.adapter = adapter
         /**
          * voiceButton clicked
          */
         val toggle: ToggleButton = findViewById(R.id.voiceButton)
         toggle.setOnCheckedChangeListener { _, isChecked ->
-            if(isChecked) {
-                initializeSpeechRecognizer()
-                Log.i("voice", "L49")
-            } else {
-                try {
-                    GlobalScope.launch {
-                        runOnUiThread {
-                            mSpeechRecognizer.cancel()
-                        }
-                        delay(1000)
-                        runOnUiThread {
-                            mSpeechRecognizer.destroy()
-                        }
-                        Log.i("voice", "L60")
-                    }
-                } catch (ex: Exception) {
-
-                }
-            }
+            execSpeechRecognizer(isChecked)
         }
 
     }
 
+
+    fun execSpeechRecognizer(flag: Boolean) {
+        if(flag) {
+            initializeSpeechRecognizer()
+            Log.i("voice", "L49")
+        } else {
+            try {
+                GlobalScope.launch {
+                    runOnUiThread {
+                        mSpeechRecognizer.cancel()
+                    }
+                    delay(1000)
+                    runOnUiThread {
+                        mSpeechRecognizer.destroy()
+                    }
+                    Log.i("voice", "L60")
+                }
+            } catch (ex: Exception) {
+
+            }
+        }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        Log.i("keydown", keyCode.toString())
+        if ( keyCode == 24 ) {
+            return true
+        } else if ( keyCode == 66 ) {
+            return true
+        } else {
+            return super.onKeyDown(keyCode, event)
+        }
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        Log.i("keyup", keyCode.toString())
+        return if ( keyCode == 24 ) {
+            var toggle: ToggleButton = findViewById(R.id.voiceButton)
+            var flag: Boolean = toggle.isChecked
+
+            if ( flag == true ) {
+                flag = false
+            } else {
+                flag = true
+            }
+            execSpeechRecognizer(flag = flag)
+            toggle.isChecked = flag
+            true
+        } else if ( keyCode == 66 ) {
+            var toggle: ToggleButton = findViewById(R.id.voiceButton)
+            var flag: Boolean = toggle.isChecked
+            if ( flag == true ) {
+                flag = false
+                execSpeechRecognizer(flag = flag)
+                toggle.isChecked = flag
+            }
+
+            // Send to GCP
+            sendData()
+            true
+        } else {
+            super.onKeyUp(keyCode, event)
+        }
+    }
+
+    override fun onKeyLongPress(keyCode: Int, event: KeyEvent?): Boolean {
+        Log.i("keylongpress", keyCode.toString())
+        return super.onKeyLongPress(keyCode, event)
+    }
+
+    override protected fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent);
+        //TODO: android.intent.action.VOICE_COMMAND で起動された
+    }
+
     fun onClickSend(view: View) {
+        sendData()
+
+    }
+
+    fun onClickClear(view: View) {
+        listItems.clear()
+
+        val lvSpeech = findViewById<EditText>(R.id.speechText)
+        lvSpeech.setText("")
+    }
+
+    fun sendData()
+    {
         val speechText = findViewById<EditText>(R.id.speechText)
 
         // val jsonObject = JSONObject()
@@ -111,12 +198,26 @@ class MainActivity : AppCompatActivity() {
         }
         speechList[0] = text.trimEnd()
 
+        // 一行目をコマンドとして認識させる
+        var  array = speechList[0].split(" ")
+        var recognize_text = ""
+        if ( array.count() > 1 ) {
+            for(  i in 1..array.count()-1 ) {
+                recognize_text += array[i]
+                recognize_text += " "
+            }
+        }
+
         Log.i("test", speechList[0])
 
+        var spinner_user: Spinner = findViewById(R.id.spinner_user)
+        var select_user:Int = spinner_user.selectedItemPosition
+
+
         wordMap["date"] = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN).format(Date())
-        wordMap["user"] = "1"
-        wordMap["type"] = "訪問介護"
-        wordMap["text"] = speechList[0]
+        wordMap["user"] = (select_user+1).toString()
+        wordMap["type"] = array[0]
+        wordMap["text"] = recognize_text
         wordMap["value1"] = speechList[1]
         wordMap["value2"] = speechList[2]
         wordMap["value3"] = speechList[3]
@@ -156,18 +257,9 @@ class MainActivity : AppCompatActivity() {
         val lvSpeech = findViewById<EditText>(R.id.speechText)
         lvSpeech.setText("")
 
-
-    }
-
-    fun onClickClear(view: View) {
-        listItems.clear()
-
-        val lvSpeech = findViewById<EditText>(R.id.speechText)
-        lvSpeech.setText("")
     }
 
     private fun initializeSpeechRecognizer() {
-
 
         mSpeechRecognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         mSpeechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, this.packageName)
@@ -262,7 +354,6 @@ class MainActivity : AppCompatActivity() {
                 }
 
             }
-
 
         })
 
